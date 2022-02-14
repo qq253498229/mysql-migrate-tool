@@ -82,9 +82,10 @@ public class Column implements Difference, Serializable {
         }
         if (FLAG_NOT_NULL.equals(this.nullable)) {
             sb.append("NOT NULL ");
+        } else {
+            sb.append("DEFAULT ").append(resolveDefaultValue()).append(" ");
         }
 
-        sb.append("DEFAULT ").append(resolveDefaultValue()).append(" ");
 
         String extra = resolveExtra(this.extra);
         sb.append(extra).append(" ");
