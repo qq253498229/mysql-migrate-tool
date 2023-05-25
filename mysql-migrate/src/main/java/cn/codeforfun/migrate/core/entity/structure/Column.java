@@ -87,7 +87,7 @@ public class Column implements Difference, Serializable {
         if (FLAG_NOT_NULL.equals(this.nullable)) {
             sb.append("NOT NULL ");
         } else {
-            return "NULL";
+            sb.append("NULL ");
         }
 
         String extra = resolveExtra(this.extra);
