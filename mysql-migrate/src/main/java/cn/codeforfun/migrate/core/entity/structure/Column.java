@@ -80,12 +80,15 @@ public class Column implements Difference, Serializable {
         if (!this.getTable().getDatabase().getInfo().getIgnoreCharacterCompare() && !ObjectUtils.isEmpty(this.collation)) {
             sb.append("COLLATE ").append(this.collation).append(" ");
         }
+
+        if (!ObjectUtils.isEmpty(defaultValue)) {
+            sb.append("DEFAULT ").append(resolveDefaultValue()).append(" ");
+        }
         if (FLAG_NOT_NULL.equals(this.nullable)) {
             sb.append("NOT NULL ");
         } else {
-            sb.append("DEFAULT ").append(resolveDefaultValue()).append(" ");
+            return "NULL";
         }
-
 
         String extra = resolveExtra(this.extra);
         sb.append(extra).append(" ");
