@@ -80,7 +80,7 @@ public class DatabaseInfo implements Serializable {
             return this.url;
         }
         String url = "jdbc:mysql://" + this.host + ":" + this.port + "/" + name;
-        url += "?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true";
+        url += "?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false";
         String timeZone;
         if (ObjectUtils.isEmpty(this.timezone)) {
             timeZone = "GMT%2B8";
