@@ -74,7 +74,7 @@ public class DiffResult {
     }
 
     public void resolveDeleteSql() {
-        Key.resolveDeleteSql(this.delete, this.sqlList);
+        Key.resolveDeleteSql(this, this.sqlList);
         for (Difference difference : this.delete) {
             if (difference instanceof Table) {
                 Table delete = (Table) difference;

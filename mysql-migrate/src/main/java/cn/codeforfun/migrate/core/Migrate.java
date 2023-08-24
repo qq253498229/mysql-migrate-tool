@@ -74,6 +74,32 @@ public class Migrate {
     }
 
     /**
+     * 对比表结构
+     */
+    private void compareTable(String fromTable, String toTable) {
+        List<Table> fromTableList = this.diff.getFrom().getTables().stream()
+                .filter(s -> fromTable.equals(s.getName()))
+                .collect(Collectors.toList());
+        List<Table> toTableList = this.diff.getTo().getTables().stream()
+                .filter(s -> toTable.equals(s.getName()))
+                .peek(s -> {
+                    s.setName(fromTable);
+                    List<Column> columnList = s.getColumns().stream().peek(j -> j.setTableName(fromTable)).collect(Collectors.toList());
+                    s.setColumns(columnList);
+                    List<Key> keyList = s.getKeys().stream().peek(j -> j.setTableName(fromTable)).collect(Collectors.toList());
+                    s.setKeys(keyList);
+                })
+                .collect(Collectors.toList());
+        // 需要更新的表
+        List<Table> fromUpdateTableList = fromTableList.stream().filter(s -> toTableList.stream().anyMatch(j -> j.getName().equals(s.getName()))).collect(Collectors.toList());
+        List<Table> toUpdateTableList = toTableList.stream().filter(s -> fromTableList.stream().anyMatch(j -> j.getName().equals(s.getName()))).collect(Collectors.toList());
+
+        compareKey(fromUpdateTableList, toUpdateTableList);
+        compareColumn(fromUpdateTableList, toUpdateTableList);
+        compareTable(fromTableList, toTableList);
+    }
+
+    /**
      * 对比数据库结构
      */
     private void compare() {
@@ -302,6 +328,38 @@ public class Migrate {
         // 新建表
         List<Table> createTableList = fromTableList.stream().filter(s -> toTableList.stream().noneMatch(j -> j.getName().equals(s.getName()))).collect(Collectors.toList());
         this.diff.getCreate().addAll(createTableList);
+    }
+
+    /**
+     * 指定表名对比表结构
+     *
+     * @param fromTable 源表
+     * @param toTable   目标表
+     * @return 结构差异
+     */
+    public DiffResult diffTable(String fromTable, String toTable) throws SQLException {
+        if (sourceInfo == null) {
+            log.error("sourceDatabase 为空");
+            throw new NullPointerException("sourceDatabase 不能为空");
+        }
+        if (targetInfo == null) {
+            log.error("targetDatabase 为空");
+            throw new NullPointerException("targetDatabase 不能为空");
+        }
+        sourceInfo.setIgnoreCharacterCompare(IGNORE_CHARACTER_COMPARE);
+        targetInfo.setIgnoreCharacterCompare(IGNORE_CHARACTER_COMPARE);
+        log.debug("开始对比表结构");
+        Database source = new Database().init(this.sourceInfo);
+        Database target = new Database().init(this.targetInfo);
+        this.diff = new DiffResult(source, target);
+        compareTable(fromTable, toTable);
+        log.debug("对比表结构完成");
+        if (ObjectUtils.isEmpty(this.diff.getDelete())
+                && ObjectUtils.isEmpty(this.diff.getCreate())
+                && ObjectUtils.isEmpty(this.diff.getUpdate())) {
+            log.debug("表结构没有变化。");
+        }
+        return this.diff;
     }
 
     /**

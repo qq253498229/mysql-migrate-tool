@@ -1,5 +1,6 @@
 package cn.codeforfun.migrate.core.entity.structure;
 
+import cn.codeforfun.migrate.core.diff.DiffResult;
 import cn.codeforfun.migrate.core.diff.Difference;
 import cn.codeforfun.migrate.core.entity.structure.annotations.DbUtilProperty;
 import cn.codeforfun.migrate.core.utils.ObjectUtils;
@@ -8,9 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -63,8 +62,35 @@ public class Key implements Difference, Serializable {
         return KeyType.OTHER;
     }
 
-    public static void resolveDeleteSql(List<Difference> delete, List<String> sqlList) {
+    public static void resolveDeleteSql(DiffResult result, List<String> sqlList) {
+        List<Difference> delete = result.getDelete();
+
         List<Key> deleteKeyList = delete.stream().filter(s -> s instanceof Key).map(s -> (Key) s).collect(Collectors.toList());
+
+        // 如果是删除主键，首先要判断主键是否有自增，如果有自增，则要先修改去掉自增
+        List<Key> deletePrimaryKeyList = deleteKeyList.stream().filter(s -> "primary".equalsIgnoreCase(s.getName())).collect(Collectors.toList());
+        for (int i = deletePrimaryKeyList.size() - 1; i >= 0; i--) {
+            Key key = deletePrimaryKeyList.get(i);
+            if (!"primary".equalsIgnoreCase(key.getName())) continue;
+            Optional<Table> findTable = result.getTo().getTables().stream().filter(s -> key.getTableName().equals(s.getName())).findFirst();
+            if (!findTable.isPresent()) continue;
+            Optional<Column> findColumn = findTable.get().getColumns().stream().filter(s -> key.getColumnName().equals(s.getName())).findFirst();
+            if (!findColumn.isPresent()) continue;
+            String extra = findColumn.get().getExtra();
+            if (ObjectUtils.isEmpty(extra) || (!extra.contains("auto_increment") && !extra.contains("AUTO_INCREMENT")))
+                continue;
+            List<Difference> updateList = result.getUpdate();
+            Optional<Difference> findUpdateColumn = updateList.stream().filter(s -> s instanceof Column
+                    && ((Column) s).getTableName().equals(findTable.get().getName())
+                    && ((Column) s).getName().equals(findColumn.get().getName())
+            ).findFirst();
+            if (!findUpdateColumn.isPresent()) continue;
+            Column column = (Column) findUpdateColumn.get();
+            sqlList.add(column.getUpdateSql());
+            updateList.remove(column);
+            sqlList.add(key.getDeleteSql());
+            deleteKeyList.remove(key);
+        }
 
         List<Key> uniqueKeyList = deleteKeyList.stream().filter(s -> s.getKeyType() == KeyType.UNIQUE).collect(Collectors.toList());
         if (!ObjectUtils.isEmpty(uniqueKeyList)) {
